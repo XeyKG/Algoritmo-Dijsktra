@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Dijkstra — UNAB → UIS</title>
+
+  <!-- Leaflet.js -->
+  <link  rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    body {
+      font-family: 'Segoe UI', monospace;
+      background: #0d1117;
+      color: #cdd6f4;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      background: #1a1a2e;
+      border-bottom: 1px solid #2a2a4a;
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 1000;
+    }
+    header h1 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: 1px;
+    }
+    header h1 span { color: #ffdd00; }
+
+    #btn-start {
+      background: #ffdd00;
+      color: #0d1117;
+      border: none;
+      padding: 8px 22px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all .2s;
+    }
+    #btn-start:hover   { background: #ffe84d; transform: scale(1.04); }
+    #btn-start:disabled { background: #444; color: #888; cursor: not-allowed; transform: none; }
+
+    /* ── LAYOUT PRINCIPAL ── */
+    .main-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── MAPA ── */
+    #map {
+      flex: 1;
+      height: 100%;
+      z-index: 1;
+    }
+
+    /* ── PANEL LATERAL ── */
+    .sidebar {
+      width: 320px;
+      background: #1a1a2e;
+      border-left: 1px solid #2a2a4a;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .sidebar-section {
+      padding: 14px 16px;
+      border-bottom: 1px solid #2a2a4a;
+    }
+    .sidebar-section h2 {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      color: #7f849c;
+      margin-bottom: 10px;
+    }
+
+    /* ── STATS ── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+    .stat-card {
+      background: #0d1117;
+      border: 1px solid #2a2a4a;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+    .stat-card .label {
+      font-size: 10px;
+      color: #7f849c;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stat-card .value {
+      font-size: 20px;
+      font-weight: 700;
+      color: #cdd6f4;
+      margin-top: 2px;
+    }
+    .stat-card.highlight .value { color: #ffdd00; }
+
+    /* ── PROGRESS ── */
+    .progress-wrap {
+      margin-top: 8px;
+      background: #0d1117;
+      border-radius: 999px;
+      height: 8px;
+      overflow: hidden;
+    }
+    #progress-bar {
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, #4488ff, #ffdd00);
+      border-radius: 999px;
+      transition: width .3s ease;
+    }
+    #progress-label {
+      font-size: 11px;
+      color: #7f849c;
+      margin-top: 5px;
+      text-align: right;
+    }
+
+    /* ── LEYENDA ── */
+    .legend-list { list-style: none; }
+    .legend-list li {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 12px;
+      margin-bottom: 6px;
+      color: #cdd6f4;
+    }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      border: 2px solid rgba(255,255,255,.25);
+    }
+
+    /* ── LOG ── */
+    .log-wrap {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 14px;
+      font-size: 11px;
+      font-family: monospace;
+      line-height: 1.7;
+      color: #7f849c;
+    }
+    .log-wrap::-webkit-scrollbar { width: 4px; }
+    .log-wrap::-webkit-scrollbar-thumb { background: #2a2a4a; border-radius: 2px; }
+
+    .log-entry { margin-bottom: 2px; }
+    .log-entry.info    { color: #89b4fa; }
+    .log-entry.success { color: #a6e3a1; }
+    .log-entry.route   { color: #ffdd00; }
+    .log-entry.done    { color: #f38ba8; font-weight: bold; }
+
+    /* ── STATUS BADGE ── */
+    #status-badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #2a2a4a;
+      color: #7f849c;
+      margin-left: 12px;
+    }
+    #status-badge.running  { background: #1e3a5f; color: #89b4fa; }
+    #status-badge.done     { background: #1e3a1e; color: #a6e3a1; }
+
+    /* ── FOOTER ── */
+    footer {
+      background: #1a1a2e;
+      border-top: 1px solid #2a2a4a;
+      padding: 6px 20px;
+      font-size: 11px;
+      color: #45475a;
+      text-align: center;
+    }
+  </style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<header>
+  <h1>Algoritmo <span>Dijkstra</span> &nbsp;—&nbsp; UNAB → UIS &nbsp;|&nbsp; Bucaramanga
+    <span id="status-badge">Listo</span>
+  </h1>
+  <button id="btn-start" onclick="startDijkstra()">▶ Ejecutar Dijkstra</button>
+</header>
+
+<!-- LAYOUT -->
+<div class="main-layout">
+
+  <!-- MAPA -->
+  <div id="map"></div>
+
+  <!-- SIDEBAR -->
+  <div class="sidebar">
+
+    <!-- STATS -->
+    <div class="sidebar-section">
+      <h2>Estadísticas</h2>
+      <div class="stats-grid">
+        <div class="stat-card highlight">
+          <div class="label">Distancia</div>
+          <div class="value" id="stat-dist">— m</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Nodos ruta</div>
+          <div class="value" id="stat-path">—</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Explorados</div>
+          <div class="value" id="stat-explored">0</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total nodos</div>
+          <div class="value" id="stat-total">—</div>
+        </div>
+      </div>
+      <!-- Progress -->
+      <div class="progress-wrap" style="margin-top:12px">
+        <div id="progress-bar"></div>
+      </div>
+      <div id="progress-label">0%</div>
+    </div>
+
+    <!-- LEYENDA -->
+    <div class="sidebar-section">
+      <h2>Leyenda</h2>
+      <ul class="legend-list">
+        <li><span class="legend-dot" style="background:#00ff88"></span>Origen (UNAB)</li>
+        <li><span class="legend-dot" style="background:#ff4444"></span>Destino (UIS)</li>
+        <li><span class="legend-dot" style="background:#ffdd00"></span>Ruta óptima</li>
+        <li><span class="legend-dot" style="background:#ff9900"></span>Frontera (cola)</li>
+        <li><span class="legend-dot" style="background:#4488ff"></span>Explorados</li>
+        <li><span class="legend-dot" style="background:#ffffff"></span>Nodo actual</li>
+      </ul>
+    </div>
+
+    <!-- LOG -->
+    <div class="sidebar-section" style="border-bottom:none; padding-bottom:4px;">
+      <h2>Log en tiempo real</h2>
+    </div>
+    <div class="log-wrap" id="log"></div>
+
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  OpenStreetMap © contributors &nbsp;|&nbsp;
+  Dijkstra sobre datos viales reales &nbsp;|&nbsp;
+  Bucaramanga, Colombia
+</footer>
+
+<script>
+// ── INIT MAPA ──────────────────────────────────────────────────────────────
+const map = L.map('map', { zoomControl: true }).setView([7.1321, -73.1189], 14);
+
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '©OpenStreetMap ©CartoDB',
+  maxZoom: 19
+}).addTo(map);
+
+// Capas dinámicas
+const layers = {
+  streets:   L.layerGroup().addTo(map),
+  explored:  L.layerGroup().addTo(map),
+  frontier:  L.layerGroup().addTo(map),
+  current:   L.layerGroup().addTo(map),
+  route:     L.layerGroup().addTo(map),
+  markers:   L.layerGroup().addTo(map),
+};
+
+// Control de capas
+L.control.layers(null, {
+  'Calles del grafo':  layers.streets,
+  'Nodos explorados':  layers.explored,
+  'Frontera (cola)':   layers.frontier,
+  'Nodo actual':       layers.current,
+  'Ruta óptima':       layers.route,
+}, { collapsed: false, position: 'topleft' }).addTo(map);
+
+// Estado global
+let totalNodes    = 0;
+let exploredCount = 0;
+let currentCircle = null;
+let routePolyline = null;
+const exploredCircles  = {};
+const frontierCircles  = {};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function log(msg, cls='info') {
+  const el  = document.getElementById('log');
+  const div = document.createElement('div');
+  div.className = `log-entry ${cls}`;
+  const ts  = new Date().toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+  div.textContent = `[${ts}] ${msg}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+}
+
+function setStatus(text, cls) {
+  const b = document.getElementById('status-badge');
+  b.textContent = text;
+  b.className   = cls;
+}
+
+function updateProgress(explored, total) {
+  const pct = total > 0 ? Math.round((explored / total) * 100) : 0;
+  document.getElementById('progress-bar').style.width  = pct + '%';
+  document.getElementById('progress-label').textContent = pct + '%';
+  document.getElementById('stat-explored').textContent  = explored;
+}
+
+// ── DIJKSTRA EN TIEMPO REAL (SSE) ─────────────────────────────────────────
+function startDijkstra() {
+  document.getElementById('btn-start').disabled = true;
+  setStatus('Ejecutando...', 'running');
+  log('Iniciando algoritmo Dijkstra...', 'info');
+
+  // Limpiar capas previas
+  Object.values(layers).forEach(l => l.clearLayers());
+  exploredCount = 0;
+
+  const evtSource = new EventSource('/stream');
+
+  evtSource.onmessage = function(e) {
+    const data = JSON.parse(e.data);
+
+    // ── Inicialización: calles del grafo ──────────────────────────────
+    if (data.type === 'init') {
+      totalNodes = data.total_nodes;
+      document.getElementById('stat-total').textContent = data.total_nodes;
+
+      log(`Grafo cargado: ${data.total_nodes} nodos, ${data.total_edges} aristas`, 'success');
+      log(`Nodo UNAB: ${data.orig_node}`, 'info');
+      log(`Nodo UIS:  ${data.dest_node}`, 'info');
+
+      // Dibujar todas las calles (tenues)
+      data.edges.forEach(([lat1, lon1, lat2, lon2]) => {
+        L.polyline([[lat1, lon1],[lat2, lon2]], {
+          color: '#334466', weight: 1, opacity: 0.4
+        }).addTo(layers.streets);
+      });
+
+      // Marcadores fijos
+      const iconUnab = L.divIcon({ className:'', html:
+        '<div style="width:18px;height:18px;background:#00ff88;border-radius:50%;border:2px solid white;"></div>'
+      });
+      const iconUis  = L.divIcon({ className:'', html:
+        '<div style="width:18px;height:18px;background:#ff4444;border-radius:50%;border:2px solid white;"></div>'
+      });
+
+      L.marker([data.unab_lat, data.unab_lon], {icon: iconUnab})
+        .bindPopup('<b>UNAB</b><br>Avenida 42 N°48-11<br><span style="color:#00ff88">Origen</span>')
+        .addTo(layers.markers).openPopup();
+
+      L.marker([data.uis_lat, data.uis_lon], {icon: iconUis})
+        .bindPopup('<b>UIS</b><br>Carrera 27 Calle 9<br><span style="color:#ff4444">Destino</span>')
+        .addTo(layers.markers);
+
+      return;
+    }
+
+    // ── Paso de Dijkstra ──────────────────────────────────────────────
+    if (data.type === 'step') {
+      exploredCount++;
+      updateProgress(exploredCount, totalNodes);
+
+      // Nodo actual (blanco pulsante)
+      layers.current.clearLayers();
+      L.circleMarker([data.lat, data.lon], {
+        radius: 7, color: '#ffffff', fillColor: '#ffffff',
+        fillOpacity: 1, weight: 2
+      }).bindTooltip(`Nodo actual<br>Dist: ${data.dist_m.toFixed(0)} m`)
+        .addTo(layers.current);
+
+      // Mover nodo de frontera → explorado
+      if (frontierCircles[data.node]) {
+        layers.frontier.removeLayer(frontierCircles[data.node]);
+        delete frontierCircles[data.node];
+      }
+
+      if (!exploredCircles[data.node]) {
+        exploredCircles[data.node] = L.circleMarker([data.lat, data.lon], {
+          radius: 4, color: '#4488ff', fillColor: '#4488ff',
+          fillOpacity: 0.7, weight: 0
+        }).bindTooltip(`Explorado<br>Dist: ${data.dist_m.toFixed(0)} m`)
+          .addTo(layers.explored);
+      }
+
+      // Nuevos nodos en frontera
+      data.new_frontier.forEach(([nlat, nlon, nid, ndist]) => {
+        if (!frontierCircles[nid] && !exploredCircles[nid]) {
+          frontierCircles[nid] = L.circleMarker([nlat, nlon], {
+            radius: 5, color: '#ff9900', fillColor: '#ff9900',
+            fillOpacity: 0.8, weight: 0
+          }).bindTooltip(`Frontera<br>Dist tentativa: ${ndist.toFixed(0)} m`)
+            .addTo(layers.frontier);
+        }
+      });
+
+      // Ruta parcial
+      if (data.partial_path && data.partial_path.length > 1) {
+        if (routePolyline) layers.route.removeLayer(routePolyline);
+        routePolyline = L.polyline(data.partial_path, {
+          color: '#ffdd00', weight: 5, opacity: 0.9
+        }).addTo(layers.route);
+      }
+
+      if (data.dist_m < 9999) {
+        log(`Nodo ${data.node} | dist: ${data.dist_m.toFixed(0)} m`, 'info');
+      }
+      return;
+    }
+
+    // ── Resultado final ───────────────────────────────────────────────
+    if (data.type === 'result') {
+      layers.current.clearLayers();
+      layers.frontier.clearLayers();
+
+      // Ruta final en amarillo brillante
+      if (routePolyline) layers.route.removeLayer(routePolyline);
+      L.polyline(data.path_coords, {
+        color: '#ffdd00', weight: 6, opacity: 1
+      }).bindTooltip(`Ruta óptima: ${data.total_dist.toFixed(0)} m`)
+        .addTo(layers.route);
+
+      // Nodos de la ruta (círculos amarillos)
+      data.path_coords.forEach(([lat, lon]) => {
+        L.circleMarker([lat, lon], {
+          radius: 5, color: '#ffdd00', fillColor: '#ffdd00',
+          fillOpacity: 1, weight: 1
+        }).addTo(layers.route);
+      });
+
+      // Ajustar zoom a la ruta
+      map.fitBounds(L.polyline(data.path_coords).getBounds(), {padding:[40,40]});
+
+      // Actualizar stats
+      document.getElementById('stat-dist').textContent =
+        `${data.total_dist.toFixed(0)} m`;
+      document.getElementById('stat-path').textContent = data.path_nodes;
+      updateProgress(data.explored_nodes, totalNodes);
+
+      log(`¡Ruta encontrada!`, 'done');
+      log(`Distancia: ${data.total_dist.toFixed(0)} m (${(data.total_dist/1000).toFixed(2)} km)`, 'route');
+      log(`Nodos en ruta: ${data.path_nodes}`, 'route');
+      log(`Nodos explorados: ${data.explored_nodes}`, 'route');
+
+      setStatus('✓ Completado', 'done');
+      document.getElementById('btn-start').disabled = false;
+      evtSource.close();
+      return;
+    }
+  };
+
+  evtSource.onerror = function() {
+    log('Error de conexión con el servidor.', 'done');
+    setStatus('Error', '');
+    document.getElementById('btn-start').disabled = false;
+    evtSource.close();
+  };
+}
+</script>
+</body>
+</html>
