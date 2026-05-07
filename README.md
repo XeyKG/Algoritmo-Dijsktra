@@ -7,40 +7,43 @@ usando datos reales de **OpenStreetMap** y un servidor web en tiempo real.
 ---
 
 ## Estructura del proyecto
+
+```
 dijkstra_unab_uis/
 │
-├── main.py # Punto de entrada
-├── requirements.txt # Dependencias
+├── main.py                 # Punto de entrada
+├── requirements.txt        # Dependencias
 ├── README.md
 │
 ├── config/
-│ ├── _init_.py
-│ └── settings.py # Coordenadas, parámetros globales
+│   ├── __init__.py
+│   └── settings.py         # Coordenadas, parámetros globales
 │
 ├── graph/
-│ ├── _init_.py
-│ ├── loader.py # Descarga el grafo desde OSM
-│ └── validator.py # Valida conectividad y aristas
+│   ├── __init__.py
+│   ├── loader.py           # Descarga el grafo desde OSM
+│   └── validator.py        # Valida conectividad y aristas
 │
 ├── algorithm/
-│ ├── _init_.py
-│ └── dijkstra.py # Dijkstra manual + generador paso a paso
+│   ├── __init__.py
+│   └── dijkstra.py         # Dijkstra manual + generador paso a paso
 │
 ├── visualization/
-│ ├── _init_.py
-│ ├── styles.py # Colores y tamaños
-│ ├── plotter.py # Imagen estática PNG (matplotlib)
-│ ├── animator.py # Animación GIF paso a paso
-│ ├── map_html.py # Mapa estático HTML con Folium
-│ └── web_server.py # Servidor Flask + SSE en tiempo real
+│   ├── __init__.py
+│   ├── styles.py           # Colores y tamaños
+│   ├── plotter.py          # Imagen estática PNG (matplotlib)
+│   ├── animator.py         # Animación GIF paso a paso
+│   ├── map_html.py         # Mapa estático HTML con Folium
+│   └── web_server.py       # Servidor Flask + SSE en tiempo real
 │
 ├── templates/
-│ └── index.html # Interfaz web interactiva (Leaflet.js)
+│   └── index.html          # Interfaz web interactiva (Leaflet.js)
 │
-└── output/ # Archivos generados (auto-creada)
-├── dijkstra_UNAB_UIS.png
-├── dijkstra_animacion.gif
-└── ruta_unab_uis.html
+└── output/                 # Archivos generados (auto-creada)
+    ├── dijkstra_UNAB_UIS.png
+    ├── dijkstra_animacion.gif
+    └── ruta_unab_uis.html
+```
 
 ---
 
@@ -120,6 +123,8 @@ el mapa de Bucaramanga.
 ---
 
 ## Algoritmo — Dijkstra
+
+```
 Entrada: G (DiGraph OSM), origen (UNAB), destino (UIS), peso = 'length'
 Salida: camino óptimo, distancias, orden de exploración
 
@@ -128,19 +133,20 @@ dist[UNAB] = 0
 cola_prioridad = [(0, UNAB)]
 
 mientras cola no vacía:
-(d, u) = extraer mínimo
-si u ya visitado → continuar
-marcar u como visitado
-si u == UIS → detener ✓
+    (d, u) = extraer mínimo
+    si u ya visitado → continuar
+    marcar u como visitado
+    si u == UIS → detener ✓
 
-para cada vecino v de u (respetando dirección de la calle):
-nueva_dist = dist[u] + longitud(u → v)
-si nueva_dist < dist[v]:
-dist[v] = nueva_dist
-prev[v] = u
-insertar (nueva_dist, v) en cola
+    para cada vecino v de u (respetando dirección de la calle):
+        nueva_dist = dist[u] + longitud(u → v)
+        si nueva_dist < dist[v]:
+            dist[v] = nueva_dist
+            prev[v] = u
+            insertar (nueva_dist, v) en cola
 
 reconstruir camino siguiendo prev[] desde UIS → UNAB
+```
 
 La complejidad con cola de prioridad (heap) es **O((V + E) log V)**.
 
@@ -161,6 +167,8 @@ La complejidad con cola de prioridad (heap) es **O((V + E) log V)**.
 ---
 
 ## Dependencias
+
+```
 osmnx>=1.9.0
 networkx>=3.0
 matplotlib>=3.8
@@ -169,5 +177,4 @@ scikit-learn>=1.4
 contextily>=1.6
 folium>=0.15
 flask>=3.0
-
----
+```
